@@ -29,28 +29,35 @@ ats-test-esp32-demo/
 
 ## ✅ What This Repository Is Responsible For
 
-- ✅ Flashing ESP32 firmware artifacts produced by CI
-- ✅ Executing automated hardware tests
+- ✅ **Pure test execution logic** (hardware-agnostic)
+- ✅ Reading test parameters from `ats-manifest.yaml`
+- ✅ Executing automated hardware tests (assuming firmware is already flashed)
 - ✅ Observing firmware behavior via:
-  - UART logs
-  - GPIO state
+  - UART logs (from serial port)
+  - GPIO state (from environment variables)
   - Visual indicators (LED / OLED)
-- ✅ Producing test reports and metrics
+- ✅ Producing structured test results:
+  - `ats-summary.json`
+  - `junit.xml`
+  - `serial.log`
+  - `meta.yaml`
 - ✅ Integrating with Jenkins-based test pipelines
+
+**This repository contains NO hardware interaction logic** (flashing, USB detection) — that belongs to `ats-ats-node`.
 
 ---
 
 ## ❌ What This Repository Does NOT Do
 
-- ❌ Build firmware
-- ❌ Modify firmware source code
-- ❌ Manage CI orchestration
-- ❌ Own artifact generation
+- ❌ Build firmware → `ats-fw-esp32-demo`
+- ❌ Modify firmware source code → `ats-fw-esp32-demo`
+- ❌ Manage CI orchestration → `ats-ci-infra`
+- ❌ Own artifact generation → `ats-fw-esp32-demo`
+- ❌ Flash firmware → `ats-ats-node`
+- ❌ Detect USB/hardware → `ats-ats-node`
+- ❌ Control GPIO directly → `ats-ats-node` (uses env vars instead)
 
-**Those responsibilities belong to:**
-
-- `ats-fw-esp32-demo` (firmware)
-- `ats-ci-infra` (CI orchestration)
+**This repository is hardware-agnostic and assumes firmware is already flashed and ready for testing.**
 
 ---
 
@@ -70,38 +77,46 @@ This test runner is expected to run inside a Docker container on ATS nodes.
 
 ## 🔄 High-Level Test Flow
 
-1. **Jenkins test pipeline schedules a test job**
-2. **The test job:**
-   - Pulls firmware artifact (`firmware.bin`)
-   - Pulls execution manifest (`ats-manifest.yaml`)
-3. **The test runner:**
-   - Flashes firmware to ESP32
-   - Reboots the device
-   - Observes runtime behavior
-4. **Test results are collected as:**
-   - Logs
-   - Pass/Fail status
-   - Metrics
+1. **Jenkins test pipeline schedules a test job on ATS node**
+2. **ATS Node (`ats-ats-node`):**
+   - Pulls firmware artifact (`firmware-esp32.bin`) and manifest (`ats-manifest.yaml`)
+   - Runs `ats-node-test` Docker container
+   - Container flashes firmware to ESP32
+   - Container invokes test runner (`ats-test-esp32-demo`)
+3. **Test Runner (`ats-test-esp32-demo`):**
+   - Reads `ats-manifest.yaml` for test parameters
+   - Assumes firmware is already flashed
+   - Executes test logic (UART read, GPIO check, etc.)
+   - Generates structured results
+4. **ATS Node collects results:**
+   - `ats-summary.json`
+   - `junit.xml`
+   - `serial.log`
+   - `meta.yaml`
 5. **Results are archived and reported back to CI**
 
 ---
 
 ## 📋 Manifest-Driven Execution
 
-Test execution is driven by a manifest generated during the firmware build pipeline.
+Test execution is driven by a manifest (`ats-manifest.yaml`) generated during the firmware build pipeline.
+
+**Manifest Schema:** [ATS Manifest Specification v1](../ats-platform-docs/architecture/ats-manifest-spec-v1.md)
 
 **Example fields consumed:**
 
-- Firmware artifact name
-- Commit hash
-- Test plan
-- Target device
+- `build.artifact.name` - Firmware artifact filename
+- `build.git.commit` - Commit hash
+- `test_plan` - List of tests to execute
+- `device.target` - Device target (e.g., `esp32`)
+- `device.board` - Board identifier
 
 **This allows:**
 
 - Full traceability
 - Reproducible test runs
 - Clean separation between build and test
+- Hardware-agnostic test logic
 
 ---
 
