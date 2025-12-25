@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     udev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install esptool for ESP32 flashing
+# Install esptool for ESP32 flashing and metrics dependencies
 RUN pip3 install --no-cache-dir \
     esptool \
     pyserial \
