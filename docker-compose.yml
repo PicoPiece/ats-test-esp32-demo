@@ -1,0 +1,33 @@
+# Docker Compose for ATS Test Runner on Raspberry Pi
+# This runs the test container with necessary hardware access
+
+version: "3.9"
+
+services:
+  ats-test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ats-test-runner
+    restart: unless-stopped
+    privileged: true  # Required for GPIO and USB access
+    devices:
+      # USB devices (ESP32)
+      - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev/ttyUSB1:/dev/ttyUSB1
+      - /dev/ttyACM0:/dev/ttyACM0
+      - /dev/ttyACM1:/dev/ttyACM1
+    volumes:
+      # GPIO access (Raspberry Pi)
+      - /sys/class/gpio:/sys/class/gpio:ro
+      - /dev/gpiomem:/dev/gpiomem
+      # Workspace (mounted by Jenkins agent)
+      - ./:/app
+    environment:
+      - ESPTOOL_PORT=/dev/ttyUSB0
+      - ESPTOOL_BAUD=460800
+      - TEST_REPORT_DIR=/app/reports
+    network_mode: host  # For Jenkins agent communication
+    # Note: This container is typically run by Jenkins agent, not directly via docker-compose
+    # docker-compose is provided for local testing
+
