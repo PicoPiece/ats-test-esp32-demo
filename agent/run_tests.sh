@@ -199,6 +199,32 @@ if [ -f "$REPORT_DIR/uart_boot.log" ]; then
     cp "$REPORT_DIR/uart_boot.log" "$REPORT_DIR/serial.log"
 fi
 
+# Update metrics.json for Prometheus exporter
+METRICS_FILE="${METRICS_FILE:-${REPORT_DIR}/metrics.json}"
+CURRENT_TIMESTAMP=$(date +%s)
+echo "📊 Updating metrics for Prometheus exporter: ${METRICS_FILE}"
+
+# Read existing totals from previous metrics file (accumulate counters)
+PREV_PASS=0
+PREV_FAIL=0
+if [ -f "$METRICS_FILE" ]; then
+    PREV_PASS=$(python3 -c "import json; print(json.load(open('$METRICS_FILE')).get('ats_test_pass_total', 0))" 2>/dev/null || echo 0)
+    PREV_FAIL=$(python3 -c "import json; print(json.load(open('$METRICS_FILE')).get('ats_test_fail_total', 0))" 2>/dev/null || echo 0)
+fi
+
+cat > "$METRICS_FILE" <<METRICS_JSON
+{
+  "ats_test_pass_total": $((PREV_PASS + TEST_PASSED)),
+  "ats_test_fail_total": $((PREV_FAIL + TEST_FAILED)),
+  "ats_test_duration_seconds": ${SECONDS:-0},
+  "ats_fw_version": "${BUILD_NUMBER:-unknown}",
+  "ats_test_last_run_timestamp": ${CURRENT_TIMESTAMP},
+  "ats_test_in_progress": 0
+}
+METRICS_JSON
+
+echo "✅ Metrics updated: pass=$((PREV_PASS + TEST_PASSED)), fail=$((PREV_FAIL + TEST_FAILED))"
+
 # Exit with error if any test failed
 if [ $TEST_FAILED -gt 0 ]; then
     echo ""
